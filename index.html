@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo del Páramo de Sumapaz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #f0f8ff, #e6f3ff);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 1em;
+        }
+        nav {
+            background-color: #333;
+            color: white;
+            padding: 0.5em;
+        }
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        nav ul li {
+            display: inline;
+            margin-right: 10px;
+        }
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        .dropdown-content a {
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+        }
+        .dropdown-content a:hover {
+            background-color: #f1f1f1;
+        }
+        h2, h3 {
+            color: #4CAF50;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        #datos-incendio, #graficas {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        #datos-incendio p, #graficas canvas {
+            flex: 1 1 300px;
+            margin: 10px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+        #riesgo-incendio {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Monitoreo del Páramo de Sumapaz</h1>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="#inicio">Inicio</a></li>
+            <li class="dropdown">
+                <a href="javascript:void(0)" class="dropbtn">Galería</a>
+                <div class="dropdown-content">
+                    <a href="#flora">Flora</a>
+                    <a href="#fauna">Fauna</a>
+                    <a href="#paisajes">Paisajes</a>
+                </div>
+            </li>
+            <li><a href="#acerca">Acerca de</a></li>
+            <li><a href="#contacto">Contacto</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <h2>Datos en Tiempo Real del Páramo</h2>
+
+        <div id="mapa-paramo" style="width: 100%; height: 400px;"></div>
+        
+        <div id="datos-incendio">
+            <h3>Datos de Posible Incendio</h3>
+            <p id="temperatura">Temperatura: <span>0</span>°C</p>
+            <p id="humedad">Humedad: <span>0</span>%</p>
+            <p id="humo">Nivel de Humo: <span>0</span> ppm</p>
+        </div>
+        
+        <div id="graficas">
+            <h3>Gráficas en Tiempo Real</h3>
+            <canvas id="grafica-temperatura"></canvas>
+            <canvas id="grafica-humedad"></canvas>
+            <canvas id="grafica-humo"></canvas>
+        </div>
+
+        <div id="riesgo-incendio">Riesgo de incendio: 0</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Inicializar el mapa
+        var mapa = L.map('mapa-paramo').setView([4.2833, -74.2167], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(mapa);
+
+        // Inicializar gráficas
+        var ctxTemperatura = document.getElementById('grafica-temperatura').getContext('2d');
+        var ctxHumedad = document.getElementById('grafica-humedad').getContext('2d');
+        var ctxHumo = document.getElementById('grafica-humo').getContext('2d');
+
+        var graficaTemperatura = new Chart(ctxTemperatura, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: [],
+                    borderColor: 'red',
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        }
+                    }
+                }
+            }
+        });
+
+        var graficaHumedad = new Chart(ctxHumedad, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Humedad (%)',
+                    data: [],
+                    borderColor: 'blue',
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        }
+                    }
+                }
+            }
+        });
+
+        var graficaHumo = new Chart(ctxHumo, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Nivel de Humo (ppm)',
+                    data: [],
+                    borderColor: 'gray',
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Configuración de ThingSpeak
+        const channelID = '2361811';
+        const apiKey = '6062666666666666666666666666666666666666';
+        const updateInterval = 15000; // 15 segundos
+
+        // Función para obtener datos de ThingSpeak
+        function obtenerDatosThingSpeak() {
+            fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=50`)
+                .then(response => response.json())
+                .then(data => {
+                    actualizarGraficas(data.feeds);
+                })
+                .catch(error => console.error('Error al obtener datos de ThingSpeak:', error));
+        }
+
+        // Función para actualizar las gráficas con datos de ThingSpeak
+        function actualizarGraficas(feeds) {
+            const fechas = feeds.map(feed => new Date(feed.created_at));
+            const temperaturas = feeds.map(feed => parseFloat(feed.field1));
+            const humedades = feeds.map(feed => parseFloat(feed.field2));
+            const humos = feeds.map(feed => parseFloat(feed.field3));
+
+            // Actualizar gráfica de temperatura
+            graficaTemperatura.data.labels = fechas;
+            graficaTemperatura.data.datasets[0].data = temperaturas;
+            graficaTemperatura.update();
+
+            // Actualizar gráfica de humedad
+            graficaHumedad.data.labels = fechas;
+            graficaHumedad.data.datasets[0].data = humedades;
+            graficaHumedad.update();
+
+            // Actualizar gráfica de humo
+            graficaHumo.data.labels = fechas;
+            graficaHumo.data.datasets[0].data = humos;
+            graficaHumo.update();
+
+            // Actualizar los valores más recientes en el DOM
+            if (feeds.length > 0) {
+                const ultimoDato = feeds[feeds.length - 1];
+                document.querySelector('#temperatura span').textContent = parseFloat(ultimoDato.field1).toFixed(2);
+                document.querySelector('#humedad span').textContent = parseFloat(ultimoDato.field2).toFixed(2);
+                document.querySelector('#humo span').textContent = parseFloat(ultimoDato.field3).toFixed(2);
+
+                // Calcular y actualizar el riesgo de incendio
+                const temperatura = parseFloat(ultimoDato.field1);
+                const humedad = parseFloat(ultimoDato.field2);
+                const humo = parseFloat(ultimoDato.field3);
+                const riesgoIncendio = (temperatura / 50 + (100 - humedad) / 100 + humo / 1000) / 3;
+                const riesgoElement = document.getElementById('riesgo-incendio');
+                riesgoElement.textContent = `Riesgo de incendio: ${riesgoIncendio.toFixed(2)}`;
+                riesgoElement.style.color = riesgoIncendio > 0.7 ? 'red' : riesgoIncendio > 0.3 ? 'orange' : 'green';
+
+                // Actualizar el mapa
+                L.marker([4.2833, -74.2167]).addTo(mapa)
+                    .bindPopup(`Temperatura: ${temperatura.toFixed(2)}°C<br>Humedad: ${humedad.toFixed(2)}%<br>Humo: ${humo.toFixed(2)} ppm`)
+                    .openPopup();
+            }
+        }
+
+        // Iniciar la actualización periódica de datos
+        obtenerDatosThingSpeak();
+        setInterval(obtenerDatosThingSpeak, updateInterval);
+    </script>
+</body>
+</html>
